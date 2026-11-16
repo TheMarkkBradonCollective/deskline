@@ -77,3 +77,12 @@ export async function resetDemo(repo: Repo) {
   await repo.resetAll();
   return seedDemo(repo);
 }
+
+export const RESET_EVERY_MS = 24 * 3600_000;
+
+/** Reset the demo if the last reset is older than a day. Returns true if it reset. */
+export async function maybeResetDemo(repo: Repo, now = new Date()): Promise<boolean> {
+  if (!(await repo.claimDemoReset(now, new Date(now.getTime() - RESET_EVERY_MS)))) return false;
+  await resetDemo(repo);
+  return true;
+}

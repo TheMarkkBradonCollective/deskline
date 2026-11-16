@@ -5,6 +5,7 @@ import { PgRepo } from "./repo-pg";
 import { loadUser } from "./auth";
 import { authRoutes } from "./routes-auth";
 import { adminRoutes } from "./routes-admin";
+import { maybeResetDemo } from "./seed";
 import { Home, NewTicket, NotFound, TicketView } from "./views/tickets";
 
 export type Env = { Bindings: { DATABASE_URL: string; DEMO_MODE?: string }; Variables: { repo: Repo; user: User | null } };
@@ -32,6 +33,16 @@ export function createApp(opts: AppOptions = {}) {
     c.header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
     c.header("X-Content-Type-Options", "nosniff");
     c.header("Referrer-Policy", "no-referrer");
+  });
+  // Public demo: reset the fictional data once a day, checked lazily (the free plan's cron
+  // trigger quota was already used up). Each isolate checks at most every 10 minutes.
+  let nextCheck = 0;
+  app.use("*", async (c, next) => {
+    if ((opts.demo ?? true) && Date.now() >= nextCheck) {
+      nextCheck = Date.now() + 10 * 60_000;
+      await maybeResetDemo(c.var.repo);
+    }
+    await next();
   });
   app.use("*", loadUser);
   app.route("/", authRoutes(opts.demo ?? true));

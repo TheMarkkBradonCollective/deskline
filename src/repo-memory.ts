@@ -133,6 +133,13 @@ export class MemoryRepo implements Repo {
     };
   }
 
+  demoResetAt: Date | null = null;
+  async claimDemoReset(now: Date, cutoff: Date) {
+    if (this.demoResetAt && this.demoResetAt >= cutoff) return false;
+    this.demoResetAt = now;
+    return true;
+  }
+
   async resetAll() {
     this.users = [];
     this.sessions.clear();

@@ -13,7 +13,7 @@ Every feature landed through a pull request with CI (lint, typecheck, tests, bui
 | Admin | `admin@deskline.example` | `deskline-demo` |
 | Requester | `jordan@deskline.example` | `deskline-demo` |
 
-All demo people, emails, and tickets are fictional (reserved `.example` / `example.com` domains) and reset every day at 08:00 UTC.
+All demo people, emails, and tickets are fictional (reserved `.example` / `example.com` domains) and reset automatically once a day.
 Please don't enter real personal information into the public demo.
 
 ## Features
