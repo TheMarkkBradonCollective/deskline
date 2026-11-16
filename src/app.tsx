@@ -4,6 +4,7 @@ import type { Repo } from "./repo";
 import { PgRepo } from "./repo-pg";
 import { loadUser } from "./auth";
 import { authRoutes } from "./routes-auth";
+import { adminRoutes } from "./routes-admin";
 import { Home, NewTicket, NotFound, TicketView } from "./views/tickets";
 
 export type Env = { Bindings: { DATABASE_URL: string; DEMO_MODE?: string }; Variables: { repo: Repo; user: User | null } };
@@ -27,6 +28,7 @@ export function createApp(opts: AppOptions = {}) {
   });
   app.use("*", loadUser);
   app.route("/", authRoutes(opts.demo ?? true));
+  app.route("/admin", adminRoutes());
 
   app.get("/healthz", (c) => c.json({ ok: true, service: "deskline" }));
   app.get("/", (c) => c.html(<Home user={c.var.user} />));
