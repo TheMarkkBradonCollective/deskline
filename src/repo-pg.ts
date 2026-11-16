@@ -155,4 +155,14 @@ export class PgRepo implements Repo {
   async resetAll() {
     await this.q(`truncate ticket_events, tickets, sessions, users restart identity cascade`);
   }
+  async claimDemoReset(now: Date, cutoff: Date) {
+    // One statement, so concurrent isolates can't both win the claim.
+    const rows = await this.q(
+      `insert into demo_meta (key, at) values ('last_reset', $1)
+       on conflict (key) do update set at = excluded.at where demo_meta.at < $2
+       returning key`,
+      [now.toISOString(), cutoff.toISOString()],
+    );
+    return rows.length > 0;
+  }
 }

@@ -53,4 +53,6 @@ export interface Repo {
   stats(): Promise<Stats>;
   /** Delete every row. Used only by the public demo's daily reset. */
   resetAll(): Promise<void>;
+  /** Atomically claim the daily demo reset: true only if the last reset is older than `cutoff` (or never). */
+  claimDemoReset(now: Date, cutoff: Date): Promise<boolean>;
 }
