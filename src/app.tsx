@@ -2,13 +2,17 @@ import { Hono } from "hono";
 import { newPublicId, parseGuestInput, parseTicketInput, randomToken, sha256, type User } from "./domain";
 import type { Repo } from "./repo";
 import { PgRepo } from "./repo-pg";
+import { loadUser } from "./auth";
+import { authRoutes } from "./routes-auth";
 import { Home, NewTicket, NotFound, TicketView } from "./views/tickets";
 
-export type Env = { Bindings: { DATABASE_URL: string }; Variables: { repo: Repo; user: User | null } };
+export type Env = { Bindings: { DATABASE_URL: string; DEMO_MODE?: string }; Variables: { repo: Repo; user: User | null } };
 
 export interface AppOptions {
   /** Inject a repository (tests use MemoryRepo). Defaults to Neon Postgres. */
   repo?: Repo;
+  /** Show the public demo credentials on the sign-in page. */
+  demo?: boolean;
 }
 
 const form = async (req: Request) => Object.fromEntries((await req.formData()).entries()) as Record<string, string>;
@@ -21,6 +25,8 @@ export function createApp(opts: AppOptions = {}) {
     c.set("user", null);
     await next();
   });
+  app.use("*", loadUser);
+  app.route("/", authRoutes(opts.demo ?? true));
 
   app.get("/healthz", (c) => c.json({ ok: true, service: "deskline" }));
   app.get("/", (c) => c.html(<Home user={c.var.user} />));
