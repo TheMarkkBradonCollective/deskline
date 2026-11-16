@@ -8,3 +8,7 @@ workers_dev = true
 enabled = true
 
 # Secrets (never committed): set with `wrangler secret put DATABASE_URL`
+
+# Public demo: reset the fictional data every day at 08:00 UTC.
+[triggers]
+crons = ["0 8 * * *"]

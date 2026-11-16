@@ -71,3 +71,9 @@ export async function seedDemo(repo: Repo): Promise<{ users: number; tickets: nu
   }
   return { users: DEMO_ACCOUNTS.length, tickets: T.length };
 }
+
+/** Public demo reset: wipe everything, then reload the fictional seed. */
+export async function resetDemo(repo: Repo) {
+  await repo.resetAll();
+  return seedDemo(repo);
+}

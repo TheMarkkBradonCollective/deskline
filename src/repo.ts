@@ -51,4 +51,6 @@ export interface Repo {
   addEvent(publicId: string, e: { actorId: string | null; actorLabel: string; kind: TicketEvent["kind"]; body: string; internal: boolean }): Promise<void>;
   listEvents(publicId: string, includeInternal: boolean): Promise<TicketEvent[]>;
   stats(): Promise<Stats>;
+  /** Delete every row. Used only by the public demo's daily reset. */
+  resetAll(): Promise<void>;
 }

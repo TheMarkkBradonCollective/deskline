@@ -26,6 +26,13 @@ export function createApp(opts: AppOptions = {}) {
     c.set("user", null);
     await next();
   });
+  app.use("*", async (c, next) => {
+    await next();
+    // Conservative security headers on every response.
+    c.header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("Referrer-Policy", "no-referrer");
+  });
   app.use("*", loadUser);
   app.route("/", authRoutes(opts.demo ?? true));
   app.route("/admin", adminRoutes());
