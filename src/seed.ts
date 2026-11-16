@@ -36,47 +36,48 @@ const T: SeedTicket[] = [
   { subject: "Typo on the pricing page", body: "'Recieve' should be 'Receive'. Tiny demo ticket.", category: "general", priority: "low", status: "open", by: { guest: "Jamie Guest", email: "jamie@example.com" } },
 ];
 
-export async function seedDemo(repo: Repo): Promise<{ users: number; tickets: number }> {
-  const passwordHash = await hashPassword(DEMO_PASSWORD);
-  const ids = new Map<string, { id: string; name: string }>();
-  for (const a of DEMO_ACCOUNTS) {
-    const u = (await repo.findUserByEmail(a.email)) ?? (await repo.createUser({ ...a, passwordHash }));
-    ids.set(a.email, { id: u.id, name: u.name });
-  }
-  for (const s of T) {
-    const user = typeof s.by === "string" ? ids.get(s.by)! : null;
-    const guest = typeof s.by === "string" ? null : s.by;
-    const t = await repo.createTicket({
-      publicId: newPublicId(),
-      subject: s.subject,
-      body: s.body,
-      category: s.category,
-      priority: s.priority,
-      requesterId: user?.id ?? null,
-      guestName: guest?.guest ?? null,
-      guestEmail: guest?.email ?? null,
-      guestTokenHash: guest ? await sha256(randomToken()) : null,
-      actorLabel: user?.name ?? guest!.guest,
-    });
-    const admin = s.assign ? ids.get(s.assign)! : null;
-    if (admin) {
-      await repo.updateTicket(t.publicId, { assigneeId: admin.id });
-      await repo.addEvent(t.publicId, { actorId: admin.id, actorLabel: admin.name, kind: "assign", body: `Assigned to ${admin.name}`, internal: false });
-    }
-    if (s.note && admin) await repo.addEvent(t.publicId, { actorId: admin.id, actorLabel: admin.name, kind: "note", body: s.note, internal: true });
-    if (s.status !== "open") {
-      await repo.updateTicket(t.publicId, { status: s.status });
-      await repo.addEvent(t.publicId, { actorId: admin?.id ?? null, actorLabel: admin?.name ?? "Deskline", kind: "status", body: `Status set to ${s.status}`, internal: false });
-    }
-  }
-  return { users: DEMO_ACCOUNTS.length, tickets: T.length };
+export interface SeedData {
+  users: { id: string; email: string; name: string; role: "user" | "admin"; passwordHash: string }[];
+  tickets: {
+    publicId: string; subject: string; body: string; category: Category; priority: Priority; status: Status;
+    requesterId: string | null; guestName: string | null; guestEmail: string | null; guestTokenHash: string | null; assigneeId: string | null;
+  }[];
+  events: { publicId: string; actorId: string | null; actorLabel: string; kind: "created" | "status" | "assign" | "note"; body: string; internal: boolean }[];
 }
 
-/** Public demo reset: wipe everything, then reload the fictional seed. */
-export async function resetDemo(repo: Repo) {
-  await repo.resetAll();
-  return seedDemo(repo);
+/** Build the whole demo dataset in memory, so it can be written in a single database round trip. */
+export async function buildSeed(): Promise<SeedData> {
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
+  const users = DEMO_ACCOUNTS.map((a) => ({ id: crypto.randomUUID(), passwordHash, ...a }));
+  const byEmail = new Map(users.map((u) => [u.email, u]));
+  const data: SeedData = { users, tickets: [], events: [] };
+  for (const s of T) {
+    const user = typeof s.by === "string" ? byEmail.get(s.by)! : null;
+    const guest = typeof s.by === "string" ? null : s.by;
+    const admin = s.assign ? byEmail.get(s.assign)! : null;
+    const publicId = newPublicId();
+    data.tickets.push({
+      publicId, subject: s.subject, body: s.body, category: s.category, priority: s.priority, status: s.status,
+      requesterId: user?.id ?? null, guestName: guest?.guest ?? null, guestEmail: guest?.email ?? null,
+      guestTokenHash: guest ? await sha256(randomToken()) : null, assigneeId: admin?.id ?? null,
+    });
+    const ev = (e: Omit<SeedData["events"][number], "publicId">) => data.events.push({ publicId, ...e });
+    ev({ actorId: user?.id ?? null, actorLabel: user?.name ?? guest!.guest, kind: "created", body: "", internal: false });
+    if (admin) ev({ actorId: admin.id, actorLabel: admin.name, kind: "assign", body: `Assigned to ${admin.name}`, internal: false });
+    if (s.note && admin) ev({ actorId: admin.id, actorLabel: admin.name, kind: "note", body: s.note, internal: true });
+    if (s.status !== "open") ev({ actorId: admin?.id ?? null, actorLabel: admin?.name ?? "Deskline", kind: "status", body: `Status set to ${s.status}`, internal: false });
+  }
+  return data;
 }
+
+/** Wipe everything and load the fictional demo data, atomically. */
+export async function resetDemo(repo: Repo): Promise<{ users: number; tickets: number }> {
+  const data = await buildSeed();
+  await repo.replaceAll(data);
+  return { users: data.users.length, tickets: data.tickets.length };
+}
+
+export const seedDemo = resetDemo;
 
 export const RESET_EVERY_MS = 24 * 3600_000;
 

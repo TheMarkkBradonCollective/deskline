@@ -1,3 +1,4 @@
+import type { SeedData } from "./seed";
 import type { Priority, Role, Status, Ticket, TicketEvent, TicketInput, User } from "./domain";
 
 export interface NewTicket extends TicketInput {
@@ -51,8 +52,8 @@ export interface Repo {
   addEvent(publicId: string, e: { actorId: string | null; actorLabel: string; kind: TicketEvent["kind"]; body: string; internal: boolean }): Promise<void>;
   listEvents(publicId: string, includeInternal: boolean): Promise<TicketEvent[]>;
   stats(): Promise<Stats>;
-  /** Delete every row. Used only by the public demo's daily reset. */
-  resetAll(): Promise<void>;
+  /** Replace every row with `data` in one atomic step. Used only by the public demo reset. */
+  replaceAll(data: SeedData): Promise<void>;
   /** Atomically claim the daily demo reset: true only if the last reset is older than `cutoff` (or never). */
   claimDemoReset(now: Date, cutoff: Date): Promise<boolean>;
 }
