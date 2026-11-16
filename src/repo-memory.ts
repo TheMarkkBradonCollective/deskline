@@ -1,4 +1,5 @@
 import type { Ticket, TicketEvent, User } from "./domain";
+import type { SeedData } from "./seed";
 import type { NewTicket, Repo, Stats, TicketFilter, TicketPatch } from "./repo";
 
 interface Row extends Ticket {
@@ -140,11 +141,24 @@ export class MemoryRepo implements Repo {
     return true;
   }
 
-  async resetAll() {
-    this.users = [];
+  async replaceAll(data: SeedData) {
+    this.users = data.users.map((u) => ({ ...u, createdAt: this.now() }));
     this.sessions.clear();
     this.tickets = [];
     this.events.clear();
+    for (const t of data.tickets) {
+      const ts = this.now();
+      const req = this.users.find((u) => u.id === t.requesterId);
+      const id = this.seq++;
+      this.tickets.push({
+        id, publicId: t.publicId, subject: t.subject, body: t.body, category: t.category, priority: t.priority, status: t.status,
+        requesterId: t.requesterId, requesterName: req?.name ?? t.guestName ?? "Unknown", requesterEmail: req?.email ?? t.guestEmail,
+        isGuest: !t.requesterId, assigneeId: t.assigneeId, assigneeName: this.users.find((u) => u.id === t.assigneeId)?.name ?? null,
+        createdAt: ts, updatedAt: ts, guestTokenHash: t.guestTokenHash,
+      });
+      const evs = data.events.filter((e) => e.publicId === t.publicId);
+      this.events.set(id, evs.map((e, n) => ({ id: n + 1, actorLabel: e.actorLabel, kind: e.kind, body: e.body, internal: e.internal, createdAt: this.now() })));
+    }
   }
 
   private sorted(rows: Row[]) {

@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import type { Ticket, TicketEvent, User } from "./domain";
+import type { SeedData } from "./seed";
 import type { NewTicket, Repo, Stats, TicketFilter, TicketPatch } from "./repo";
 
 type Sql = ReturnType<typeof neon>;
@@ -152,9 +153,35 @@ export class PgRepo implements Repo {
       from tickets`);
     return { open: Number(r.open), inProgress: Number(r.in_progress), waiting: Number(r.waiting), resolved: Number(r.resolved), urgent: Number(r.urgent), unassigned: Number(r.unassigned) };
   }
-  async resetAll() {
-    await this.q(`truncate ticket_events, tickets, sessions, users restart identity cascade`);
+  async replaceAll(data: SeedData) {
+    // One transaction = one HTTP round trip to Neon. A row-by-row seed blew through the
+    // Workers per-invocation subrequest limit when it ran inside a request.
+    const j = (v: unknown) => JSON.stringify(v);
+    await this.sql.transaction([
+      this.sql.query(`truncate ticket_events, tickets, sessions, users restart identity cascade`),
+      this.sql.query(
+        `insert into users (id, email, name, role, password_hash)
+         select id, email, name, role, "passwordHash" from jsonb_to_recordset($1::jsonb)
+         as x(id uuid, email text, name text, role text, "passwordHash" text)`,
+        [j(data.users)],
+      ),
+      this.sql.query(
+        `insert into tickets (public_id, subject, body, category, priority, status, requester_id, guest_name, guest_email, guest_token_hash, assignee_id)
+         select "publicId", subject, body, category, priority, status, "requesterId", "guestName", "guestEmail", "guestTokenHash", "assigneeId"
+         from jsonb_to_recordset($1::jsonb) as x("publicId" text, subject text, body text, category text, priority text, status text,
+           "requesterId" uuid, "guestName" text, "guestEmail" text, "guestTokenHash" text, "assigneeId" uuid)`,
+        [j(data.tickets)],
+      ),
+      this.sql.query(
+        `insert into ticket_events (ticket_id, actor_id, actor_label, kind, body, internal, created_at)
+         select t.id, x."actorId", x."actorLabel", x.kind, x.body, x.internal, now() + (x.ord * interval '1 millisecond')
+         from jsonb_to_recordset($1::jsonb) as x("publicId" text, "actorId" uuid, "actorLabel" text, kind text, body text, internal boolean, ord int)
+         join tickets t on t.public_id = x."publicId"`,
+        [j(data.events.map((e, ord) => ({ ...e, ord })))],
+      ),
+    ]);
   }
+
   async claimDemoReset(now: Date, cutoff: Date) {
     // One statement, so concurrent isolates can't both win the claim.
     const rows = await this.q(

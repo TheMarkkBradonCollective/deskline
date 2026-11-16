@@ -21,6 +21,21 @@ describe("public demo hardening", () => {
     expect(await maybeResetDemo(repo, new Date(t0.getTime() + 25 * 3600_000))).toBe(true);
   });
 
+  it("writes the whole demo reset in a single database call (Workers subrequest budget)", async () => {
+    const { repo } = setup({ demo: true });
+    const calls: string[] = [];
+    const r = repo as unknown as Record<string, unknown>;
+    for (const k of Object.getOwnPropertyNames(Object.getPrototypeOf(repo))) {
+      const f = r[k];
+      if (typeof f === "function" && !["constructor", "now", "sorted"].includes(k)) {
+        r[k] = (...a: unknown[]) => (calls.push(k), (f as (...x: unknown[]) => unknown).apply(repo, a));
+      }
+    }
+    await maybeResetDemo(repo);
+    expect(calls).toEqual(["claimDemoReset", "replaceAll"]);
+    expect(repo.tickets.length).toBe(8);
+  });
+
   it("the first request to a fresh demo seeds it", async () => {
     const { repo, get } = setup({ demo: true });
     expect(repo.tickets.length).toBe(0);
