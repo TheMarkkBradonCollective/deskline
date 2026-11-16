@@ -152,4 +152,7 @@ export class PgRepo implements Repo {
       from tickets`);
     return { open: Number(r.open), inProgress: Number(r.in_progress), waiting: Number(r.waiting), resolved: Number(r.resolved), urgent: Number(r.urgent), unassigned: Number(r.unassigned) };
   }
+  async resetAll() {
+    await this.q(`truncate ticket_events, tickets, sessions, users restart identity cascade`);
+  }
 }

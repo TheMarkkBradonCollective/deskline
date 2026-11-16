@@ -133,6 +133,13 @@ export class MemoryRepo implements Repo {
     };
   }
 
+  async resetAll() {
+    this.users = [];
+    this.sessions.clear();
+    this.tickets = [];
+    this.events.clear();
+  }
+
   private sorted(rows: Row[]) {
     return [...rows].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(strip);
   }
