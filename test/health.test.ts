@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { app } from "../src/index";
+import { createApp } from "../src/app";
+import { MemoryRepo } from "../src/repo-memory";
+
+const app = createApp({ repo: new MemoryRepo() });
 
 describe("health check", () => {
   it("reports ok", async () => {

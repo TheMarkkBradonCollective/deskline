@@ -1,8 +1,4 @@
-import { Hono } from "hono";
+import { createApp } from "./app";
 
-export const app = new Hono();
-
-app.get("/healthz", (c) => c.json({ ok: true, service: "deskline" }));
-app.get("/", (c) => c.text("Deskline is under construction."));
-
+export const app = createApp();
 export default app;
